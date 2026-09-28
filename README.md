@@ -8,12 +8,14 @@ Aplicación de gestión y reserva de recursos sanitarios (termómetros, sillas d
 app_telemedicina/
 ├── telemedicina2026.sql      # Volcado de la base de datos MySQL (estructura y datos iniciales)
 ├── conexion_mysql.js         # Conexión a la base de datos MySQL
-├── datos.js                  # "Base de datos" en memoria (antigua; aún la usan RPC y WebSocket)
+├── datos.js                  # "Base de datos" en memoria (antigua; aún la usa WebSocket)
 ├── servidor.js               # Arranca los tres servidores (REST + RPC + WebSocket)
 ├── servidor_rest.js          # API REST (Express) con MySQL — puerto 3000
 ├── servidor_rest_old.js      # Versión anterior de la API REST, que usaba datos.js
 ├── ejemplo_servidor_rest.js  # Ejemplo de referencia de servidor REST con MySQL
-├── servidor_rpc.js           # API estilo RPC — puerto 3501
+├── servidor_rpc.js           # API estilo RPC con MySQL — puerto 3501
+├── servidor_rpc_old.js       # Versión anterior de la API RPC, que usaba datos.js
+├── ejemplo_servidor_rpc.js   # Ejemplo de referencia de servidor RPC con MySQL
 ├── servidor_ws.js            # Servidor WebSocket para notificaciones en tiempo real — puerto 3502
 ├── rpc.js                    # Utilidades del servidor RPC
 ├── cliente_rest/             # Cliente web que consume la API REST
@@ -68,10 +70,10 @@ node servidor.js
 | Servidor | Fuente de datos |
 |---|---|
 | REST (`servidor_rest.js`) | MySQL |
-| RPC (`servidor_rpc.js`) | `datos.js` (en memoria) |
+| RPC (`servidor_rpc.js`) | MySQL |
 | WebSocket (`servidor_ws.js`) | `datos.js` (en memoria) |
 
-Mientras RPC y WebSocket no estén migrados, los cambios hechos desde el cliente REST (en MySQL) no son visibles desde el cliente RPC ni en los avisos WebSocket, y viceversa.
+Mientras WebSocket no esté migrado, los avisos en tiempo real solo conocen los datos iniciales de `datos.js`: los recursos, reservas o sanitarios creados desde los clientes REST o RPC (en MySQL) aparecen como desconocidos en los avisos.
 
 ## Tecnologías
 
