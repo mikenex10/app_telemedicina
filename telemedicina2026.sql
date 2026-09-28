@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 28-09-2026 a las 22:51:37
+-- Tiempo de generación: 28-09-2026 a las 23:34:20
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -221,9 +221,9 @@ CREATE TABLE `reservas` (
   `recurso` int(11) NOT NULL,
   `sanitario` int(11) NOT NULL,
   `horas_estimadas` int(11) NOT NULL,
-  `fecha_peticion` date NOT NULL,
-  `fecha_inicio` date DEFAULT NULL,
-  `fecha_fin` date DEFAULT NULL
+  `fecha_peticion` datetime NOT NULL,
+  `fecha_inicio` datetime DEFAULT NULL,
+  `fecha_fin` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -231,16 +231,16 @@ CREATE TABLE `reservas` (
 --
 
 INSERT INTO `reservas` (`id`, `recurso`, `sanitario`, `horas_estimadas`, `fecha_peticion`, `fecha_inicio`, `fecha_fin`) VALUES
-(1, 5, 1, 3, '2026-01-10', '2026-01-10', '2026-01-10'),
-(2, 12, 2, 5, '2026-01-12', NULL, NULL),
-(3, 21, 3, 8, '2026-01-15', '2026-01-15', NULL),
-(4, 30, 4, 2, '2026-01-18', '2026-01-18', '2026-01-18'),
-(5, 9, 1, 4, '2026-01-20', NULL, NULL),
-(6, 5, 2, 2, '2026-01-22', NULL, NULL),
-(7, 5, 3, 6, '2026-01-23', '2026-01-23', NULL),
-(8, 12, 4, 1, '2026-01-25', '2026-01-25', '2026-01-25'),
-(9, 30, 2, 4, '2026-01-26', NULL, NULL),
-(10, 21, 1, 3, '2026-01-27', '2026-01-27', '2026-01-27');
+(1, 5, 1, 3, '2026-01-10 00:00:00', '2026-01-10 00:00:00', '2026-01-10 00:00:00'),
+(2, 12, 2, 5, '2026-01-12 00:00:00', NULL, NULL),
+(3, 21, 3, 8, '2026-01-15 00:00:00', '2026-01-15 00:00:00', NULL),
+(4, 30, 4, 2, '2026-01-18 00:00:00', '2026-01-18 00:00:00', '2026-01-18 00:00:00'),
+(5, 9, 1, 4, '2026-01-20 00:00:00', NULL, NULL),
+(6, 5, 2, 2, '2026-01-22 00:00:00', NULL, NULL),
+(7, 5, 3, 6, '2026-01-23 00:00:00', '2026-01-23 00:00:00', NULL),
+(8, 12, 4, 1, '2026-01-25 00:00:00', '2026-01-25 00:00:00', '2026-01-25 00:00:00'),
+(9, 30, 2, 4, '2026-01-26 00:00:00', NULL, NULL),
+(10, 21, 1, 3, '2026-01-27 00:00:00', '2026-01-27 00:00:00', '2026-01-27 00:00:00');
 
 -- --------------------------------------------------------
 
