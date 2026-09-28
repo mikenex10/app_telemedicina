@@ -6,26 +6,50 @@ Aplicación de gestión y reserva de recursos sanitarios (termómetros, sillas d
 
 ```
 app_telemedicina/
-├── datos.js              # "Base de datos" en memoria (sanitarios, gestores, ubicaciones, categorías, modelos, recursos, reservas, reseñas)
-├── servidor.js            # Arranca los tres servidores (REST + RPC + WebSocket)
-├── servidor_rest.js        # API REST (Express) — puerto 3000
-├── servidor_rpc.js         # API estilo RPC — puerto 3501
-├── servidor_ws.js          # Servidor WebSocket para notificaciones en tiempo real — puerto 3502
-├── rpc.js                  # Utilidades del servidor RPC
-├── cliente_rest/           # Cliente web que consume la API REST
-└── cliente_rpc/            # Cliente web que consume la API RPC
+├── telemedicina2026.sql      # Volcado de la base de datos MySQL (estructura y datos iniciales)
+├── conexion_mysql.js         # Conexión a la base de datos MySQL
+├── datos.js                  # "Base de datos" en memoria (antigua; aún la usan RPC y WebSocket)
+├── servidor.js               # Arranca los tres servidores (REST + RPC + WebSocket)
+├── servidor_rest.js          # API REST (Express) con MySQL — puerto 3000
+├── servidor_rest_old.js      # Versión anterior de la API REST, que usaba datos.js
+├── ejemplo_servidor_rest.js  # Ejemplo de referencia de servidor REST con MySQL
+├── servidor_rpc.js           # API estilo RPC — puerto 3501
+├── servidor_ws.js            # Servidor WebSocket para notificaciones en tiempo real — puerto 3502
+├── rpc.js                    # Utilidades del servidor RPC
+├── cliente_rest/             # Cliente web que consume la API REST
+└── cliente_rpc/              # Cliente web que consume la API RPC
 ```
 
 ## Requisitos
 
 - Node.js
 - npm
+- MySQL o MariaDB (por ejemplo, con [XAMPP](https://www.apachefriends.org/) y phpMyAdmin)
 
 ## Instalación
+
+### 1. Dependencias
 
 ```bash
 npm install
 ```
+
+### 2. Base de datos
+
+1. Arranca MySQL (en XAMPP: *Manage Servers* → *MySQL Database* → *Start*).
+2. En phpMyAdmin, crea una base de datos llamada `telemedicina2026`.
+3. Selecciona esa base de datos, ve a la pestaña **Importar** y carga el archivo `telemedicina2026.sql`.
+
+### 3. Usuario de MySQL
+
+La aplicación se conecta con el usuario `tele2026` y la contraseña `2026tele` (ver `conexion_mysql.js`). El volcado SQL no incluye usuarios, así que hay que crearlo a mano. En phpMyAdmin, pestaña **SQL**:
+
+```sql
+CREATE USER 'tele2026'@'localhost' IDENTIFIED BY '2026tele';
+GRANT ALL PRIVILEGES ON telemedicina2026.* TO 'tele2026'@'localhost';
+```
+
+> El usuario debe crearse con host `localhost`. Si se crea solo con host `%` (cualquier host), la cuenta anónima que XAMPP trae por defecto tiene prioridad al conectar desde `localhost` y el acceso falla con `Access denied for user 'tele2026'@'localhost'`.
 
 ## Uso
 
@@ -39,8 +63,19 @@ node servidor.js
 - API RPC: puerto 3501
 - WebSocket (notificaciones en tiempo real): puerto 3502
 
+## Estado de la migración a MySQL
+
+| Servidor | Fuente de datos |
+|---|---|
+| REST (`servidor_rest.js`) | MySQL |
+| RPC (`servidor_rpc.js`) | `datos.js` (en memoria) |
+| WebSocket (`servidor_ws.js`) | `datos.js` (en memoria) |
+
+Mientras RPC y WebSocket no estén migrados, los cambios hechos desde el cliente REST (en MySQL) no son visibles desde el cliente RPC ni en los avisos WebSocket, y viceversa.
+
 ## Tecnologías
 
-- [Express](https://expressjs.com/) — servidor REST
-- [ws](https://github.com/websockets/ws) — servidor WebSocket
+- [Express](https://expressjs.com/): servidor REST
+- [mysql](https://www.npmjs.com/package/mysql): conexión a la base de datos
+- [ws](https://github.com/websockets/ws): servidor WebSocket
 - [cors](https://www.npmjs.com/package/cors)
