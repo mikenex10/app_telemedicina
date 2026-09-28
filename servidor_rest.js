@@ -10,15 +10,7 @@ app.use(express.json());
 // BASE DE DATOS
 // =================================================================
 
-var datos = require("./datos.js");
-var sanitarios = datos.sanitarios;
-var gestores = datos.gestores;
-var ubicaciones = datos.ubicaciones;
-var categorias = datos.categorias;
-var modelos = datos.modelos;
-var recursos = datos.recursos;
-var reservas = datos.reservas;
-var resenyas = datos.resenyas;
+var conexion = require("./conexion_mysql.js");
 
 // =================================================================
 // OPERACIONES
@@ -26,17 +18,41 @@ var resenyas = datos.resenyas;
 
 // Consulta simple para ubicaciones.
 app.get("/api/ubicaciones", function (req, res) {
-    res.status(200).json(ubicaciones);
+    var sql = "SELECT * FROM ubicaciones";
+    conexion.query(sql, function (err, ubicaciones) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            res.status(200).json(ubicaciones);
+        }
+    });
 });
 
 // Consulta simple para categorias.
 app.get("/api/categorias", function (req, res) {
-    res.status(200).json(categorias);
+    var sql = "SELECT * FROM categorias";
+    conexion.query(sql, function (err, categorias) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            res.status(200).json(categorias);
+        }
+    });
 });
 
 // Consulta simple para modelos.
 app.get("/api/modelos", function (req, res) {
-    res.status(200).json(modelos);
+    var sql = "SELECT * FROM modelos";
+    conexion.query(sql, function (err, modelos) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            res.status(200).json(modelos);
+        }
+    });
 });
 
 // Autentificación de gestores.
@@ -51,14 +67,19 @@ app.post("/api/gestores/login", function (req, res) {
         return;
     };
 
-    for (var i = 0; i < gestores.length; i++) {
-        if (gestores[i].usuario === usuario && gestores[i].password === password) {
-            res.status(200).json(gestores[i].id);
-            return;
-        };
-    };
-
-    res.status(403).json("Credenciales incorrectas");
+    var sql = "SELECT id FROM gestores WHERE usuario = '" + usuario + "' AND password = '" + password + "'";
+    conexion.query(sql, function (err, gestores) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            if (gestores.length === 1) {
+                res.status(200).json(gestores[0].id);
+            } else {
+                res.status(403).json("Credenciales incorrectas");
+            }
+        }
+    });
 
 });
 
@@ -76,26 +97,27 @@ app.post("/api/gestores", function (req, res) {
         return;
     };
 
-    for (var i = 0; i < gestores.length; i++) {
-        if (gestores[i].usuario === usuario) {
+    var sql = "SELECT id FROM gestores WHERE usuario = '" + usuario + "'";
+    conexion.query(sql, function (err, gestores) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else if (gestores.length > 0) {
             res.status(403).json("El usuario ya existe");
-            return;
-        };
-    };
-
-    var nuevoGestor = {
-        id: datos.siguienteGestor,
-        nombre: nombre,
-        apellidos: apellidos,
-        usuario: usuario,
-        password: password
-    };
-
-    console.log(nuevoGestor);
-    gestores.push(nuevoGestor);
-    datos.siguienteGestor++;
-
-    res.status(201).json(nuevoGestor.id);
+        } else {
+            var sqlInsert = "INSERT INTO gestores (nombre, apellidos, usuario, password) VALUES ('"
+                + nombre + "','" + apellidos + "','" + usuario + "','" + password + "')";
+            conexion.query(sqlInsert, function (err, resultado) {
+                if (err) {
+                    console.log("Error al realizar el insert", err);
+                    res.status(500).json("Error al realizar la insercion");
+                } else {
+                    console.log("Gestor insertado:", resultado.insertId);
+                    res.status(201).json(resultado.insertId);
+                }
+            });
+        }
+    });
 
 });
 
@@ -103,42 +125,47 @@ app.post("/api/gestores", function (req, res) {
 app.put("/api/gestores/:id", function (req, res) {
 
     var id = req.params.id;
+    var sql = "SELECT * FROM gestores WHERE id = " + id;
+    conexion.query(sql, function (err, gestores) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else if (gestores.length === 0) {
+            res.status(404).json("Gestor no encontrado");
+        } else {
+            var gestor = gestores[0];
 
-    var gestor = null;
+            // Si un campo no llega en la petición, se mantiene el valor actual.
+            var nombre = req.body.nombre || gestor.nombre;
+            var apellidos = req.body.apellidos || gestor.apellidos;
+            var usuario = req.body.usuario || gestor.usuario;
+            var password = req.body.password || gestor.password;
 
-    for (var i = 0; i < gestores.length; i++) {
-        if (gestores[i].id == id) {
-            gestor = gestores[i];
-            break;
+            var sqlUsuario = "SELECT id FROM gestores WHERE usuario = '" + usuario + "' AND id <> " + id;
+            conexion.query(sqlUsuario, function (err, repetidos) {
+                if (err) {
+                    console.log("Error al realizar la select", err);
+                    res.status(500).json("Error al realizar la consulta");
+                } else if (repetidos.length > 0) {
+                    res.status(403).json("El usuario ya existe");
+                } else {
+                    var sqlUpdate = "UPDATE gestores SET nombre = '" + nombre
+                        + "', apellidos = '" + apellidos
+                        + "', usuario = '" + usuario
+                        + "', password = '" + password
+                        + "' WHERE id = " + id;
+                    conexion.query(sqlUpdate, function (err, resultado) {
+                        if (err) {
+                            console.log("Error al realizar el update", err);
+                            res.status(500).json("Error al realizar la actualización");
+                        } else {
+                            res.status(200).json("Gestor actualizado correctamente");
+                        }
+                    });
+                }
+            });
         }
-    }
-
-    if (!gestor) {
-        res.status(404).json("Gestor no encontrado");
-        return;
-    }
-
-    var nombre = req.body.nombre;
-    var apellidos = req.body.apellidos;
-    var usuario = req.body.usuario;
-    var password = req.body.password;
-
-    if (usuario && usuario !== gestor.usuario) {
-
-        for (var i = 0; i < gestores.length; i++) {
-            if (gestores[i].usuario === usuario) {
-                res.status(403).json("El usuario ya existe");
-                return;
-            }
-        }
-    }
-
-    if (nombre) gestor.nombre = nombre;
-    if (apellidos) gestor.apellidos = apellidos;
-    if (usuario) gestor.usuario = usuario;
-    if (password) gestor.password = password;
-
-    res.status(200).json("Gestor actualizado correctamente");
+    });
 
 });
 
@@ -146,75 +173,55 @@ app.put("/api/gestores/:id", function (req, res) {
 app.get("/api/gestores/:id", function (req, res) {
 
     var id = req.params.id;
-
-    for (var i = 0; i < gestores.length; i++) {
-
-        if (gestores[i].id == id) {
-
-            var gestorSinPassword = {
-                id: gestores[i].id,
-                nombre: gestores[i].nombre,
-                apellidos: gestores[i].apellidos,
-                usuario: gestores[i].usuario
-            };
-
-            res.status(200).json(gestorSinPassword);
-            return;
+    var sql = "SELECT id, nombre, apellidos, usuario FROM gestores WHERE id = " + id;
+    conexion.query(sql, function (err, gestores) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            if (gestores.length === 1) {
+                res.status(200).json(gestores[0]);
+            } else {
+                res.status(404).json("Gestor no encontrado");
+            }
         }
-    }
-
-    res.status(404).json("Gestor no encontrado");
+    });
 
 });
 
 // Contar sanitarios que tienen más de una reserva realizada (EXAMEN).
 app.get("/api/sanitarios/variasReservas", function (req, res) {
 
-    var contadorPorSanitario = {};
-
-    for (var i = 0; i < reservas.length; i++) {
-        var idSanitario = reservas[i].sanitario;
-
-        if (contadorPorSanitario[idSanitario] === undefined) {
-            contadorPorSanitario[idSanitario] = 1;
+    var sql = "SELECT COUNT(*) AS total FROM "
+        + "(SELECT sanitario FROM reservas GROUP BY sanitario HAVING COUNT(*) > 1) AS s";
+    conexion.query(sql, function (err, filas) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
         } else {
-            contadorPorSanitario[idSanitario]++;
+            res.status(200).json(filas[0].total);
         }
-    }
+    });
 
-    var sanitariosConVarias = 0;
-
-    for (var id in contadorPorSanitario) {
-        if (contadorPorSanitario[id] > 1) {
-            sanitariosConVarias++;
-        }
-    }
-
-    res.status(200).json(sanitariosConVarias);
 });
 
 // Obtener un sanitario mediante su ID.
 app.get("/api/sanitarios/:id", function (req, res) {
 
     var id = req.params.id;
-
-    for (var i = 0; i < sanitarios.length; i++) {
-
-        if (sanitarios[i].id == id) {
-
-            var sanitarioSinPassword = {
-                id: sanitarios[i].id,
-                nombre: sanitarios[i].nombre,
-                apellidos: sanitarios[i].apellidos,
-                usuario: sanitarios[i].usuario
-            };
-
-            res.status(200).json(sanitarioSinPassword);
-            return;
+    var sql = "SELECT id, nombre, apellidos, usuario FROM sanitarios WHERE id = " + id;
+    conexion.query(sql, function (err, sanitarios) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            if (sanitarios.length === 1) {
+                res.status(200).json(sanitarios[0]);
+            } else {
+                res.status(404).json("Sanitario no encontrado");
+            }
         }
-    }
-
-    res.status(404).json("Sanitario no encontrado");
+    });
 
 });
 
@@ -226,45 +233,31 @@ app.get("/api/recursos", function (req, res) {
     var ubicacion = req.query.ubicacion;
     var estado = req.query.estado;
 
-    var resultado = [];
+    var sql = "SELECT r.id, r.modelo, r.ubicacion, r.numero_serie, r.estado"
+        + " FROM recursos r JOIN modelos m ON r.modelo = m.id"
+        + " WHERE 1 = 1";
 
-    for (var i = 0; i < recursos.length; i++) {
-
-        if (modelo !== undefined && modelo !== "" && recursos[i].modelo != modelo) {
-            continue;
-        }
-
-        if (ubicacion !== undefined && ubicacion !== "" && recursos[i].ubicacion != ubicacion) {
-            continue;
-        }
-
-        if (estado !== undefined && estado !== "" && recursos[i].estado != estado) {
-            continue;
-        }
-
-        if (categoria !== undefined && categoria !== "") {
-
-            var modeloDelRecurso = null;
-            for (var j = 0; j < modelos.length; j++) {
-                if (modelos[j].id == recursos[i].modelo) {
-                    modeloDelRecurso = modelos[j];
-                    break;
-                }
-            }
-
-            if (modeloDelRecurso == null) {
-                continue;
-            }
-
-            if (modeloDelRecurso.categoria != categoria) {
-                continue;
-            }
-        }
-
-        resultado.push(recursos[i]);
+    if (modelo !== undefined && modelo !== "") {
+        sql += " AND r.modelo = " + modelo;
+    }
+    if (ubicacion !== undefined && ubicacion !== "") {
+        sql += " AND r.ubicacion = " + ubicacion;
+    }
+    if (estado !== undefined && estado !== "") {
+        sql += " AND r.estado = " + estado;
+    }
+    if (categoria !== undefined && categoria !== "") {
+        sql += " AND m.categoria = " + categoria;
     }
 
-    res.status(200).json(resultado);
+    conexion.query(sql, function (err, recursos) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            res.status(200).json(recursos);
+        }
+    });
 
 });
 
@@ -272,17 +265,19 @@ app.get("/api/recursos", function (req, res) {
 app.get("/api/recursos/:id", function (req, res) {
 
     var id = req.params.id;
-
-    for (var i = 0; i < recursos.length; i++) {
-
-        if (recursos[i].id == id) {
-
-            res.status(200).json(recursos[i]);
-            return;
+    var sql = "SELECT * FROM recursos WHERE id = " + id;
+    conexion.query(sql, function (err, recursos) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            if (recursos.length === 1) {
+                res.status(200).json(recursos[0]);
+            } else {
+                res.status(404).json("Recurso no encontrado");
+            }
         }
-    }
-
-    res.status(404).json("Recurso no encontrado");
+    });
 
 });
 
@@ -299,44 +294,30 @@ app.post("/api/recursos", function (req, res) {
         return;
     }
 
-    var existeModelo = false;
-    for (var i = 0; i < modelos.length; i++) {
-        if (modelos[i].id == modelo) {
-            existeModelo = true;
-            break;
+    var sql = "SELECT (SELECT COUNT(*) FROM modelos WHERE id = " + modelo + ") AS existeModelo, "
+        + "(SELECT COUNT(*) FROM ubicaciones WHERE id = " + ubicacion + ") AS existeUbicacion";
+    conexion.query(sql, function (err, filas) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else if (filas[0].existeModelo === 0) {
+            res.status(403).json("El modelo no existe");
+        } else if (filas[0].existeUbicacion === 0) {
+            res.status(403).json("La ubicación no existe");
+        } else {
+            var sqlInsert = "INSERT INTO recursos (modelo, ubicacion, numero_serie, estado) VALUES ("
+                + modelo + "," + ubicacion + ",'" + numero_serie + "'," + estado + ")";
+            conexion.query(sqlInsert, function (err, resultado) {
+                if (err) {
+                    console.log("Error al realizar el insert", err);
+                    res.status(500).json("Error al realizar la insercion");
+                } else {
+                    console.log("Recurso insertado:", resultado.insertId);
+                    res.status(201).json(resultado.insertId);
+                }
+            });
         }
-    }
-
-    if (!existeModelo) {
-        res.status(403).json("El modelo no existe");
-        return;
-    }
-
-    var existeUbicacion = false;
-    for (var i = 0; i < ubicaciones.length; i++) {
-        if (ubicaciones[i].id == ubicacion) {
-            existeUbicacion = true;
-            break;
-        }
-    }
-
-    if (!existeUbicacion) {
-        res.status(403).json("La ubicación no existe");
-        return;
-    }
-
-    var nuevoRecurso = {
-        id: datos.siguienteRecurso,
-        modelo: modelo,
-        ubicacion: ubicacion,
-        numero_serie: numero_serie,
-        estado: estado
-    };
-
-    recursos.push(nuevoRecurso);
-    datos.siguienteRecurso++;
-
-    res.status(201).json(nuevoRecurso.id);
+    });
 
 });
 
@@ -350,50 +331,50 @@ app.put("/api/recursos/:id", function (req, res) {
     var numero_serie = req.body.numero_serie;
     var estado = req.body.estado;
 
-    for (var i = 0; i < recursos.length; i++) {
+    var sql = "SELECT * FROM recursos WHERE id = " + id;
+    conexion.query(sql, function (err, recursos) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else if (recursos.length === 0) {
+            res.status(404).json("Recurso no encontrado");
+        } else {
+            var recurso = recursos[0];
 
-        if (recursos[i].id == id) {
+            // Si un campo no llega en la petición, se mantiene el valor actual.
+            if (modelo === undefined) modelo = recurso.modelo;
+            if (ubicacion === undefined) ubicacion = recurso.ubicacion;
+            if (numero_serie === undefined || numero_serie === "") numero_serie = recurso.numero_serie;
+            if (estado === undefined) estado = recurso.estado;
 
-            if (modelo !== undefined) {
-                var existeModelo = false;
-                for (var j = 0; j < modelos.length; j++) {
-                    if (modelos[j].id == modelo) {
-                        existeModelo = true;
-                        break;
-                    }
-                }
-                if (!existeModelo) {
+            var sqlExiste = "SELECT (SELECT COUNT(*) FROM modelos WHERE id = " + modelo + ") AS existeModelo, "
+                + "(SELECT COUNT(*) FROM ubicaciones WHERE id = " + ubicacion + ") AS existeUbicacion";
+            conexion.query(sqlExiste, function (err, filas) {
+                if (err) {
+                    console.log("Error al realizar la select", err);
+                    res.status(500).json("Error al realizar la consulta");
+                } else if (filas[0].existeModelo === 0) {
                     res.status(403).json("El modelo no existe");
-                    return;
-                }
-            }
-
-            if (ubicacion !== undefined) {
-                var existeUbicacion = false;
-                for (var j = 0; j < ubicaciones.length; j++) {
-                    if (ubicaciones[j].id == ubicacion) {
-                        existeUbicacion = true;
-                        break;
-                    }
-                }
-                if (!existeUbicacion) {
+                } else if (filas[0].existeUbicacion === 0) {
                     res.status(403).json("La ubicación no existe");
-                    return;
+                } else {
+                    var sqlUpdate = "UPDATE recursos SET modelo = " + modelo
+                        + ", ubicacion = " + ubicacion
+                        + ", numero_serie = '" + numero_serie
+                        + "', estado = " + estado
+                        + " WHERE id = " + id;
+                    conexion.query(sqlUpdate, function (err, resultado) {
+                        if (err) {
+                            console.log("Error al realizar el update", err);
+                            res.status(500).json("Error al realizar la actualización");
+                        } else {
+                            res.status(200).json("Recurso actualizado");
+                        }
+                    });
                 }
-            }
-
-            if (modelo !== undefined) recursos[i].modelo = modelo;
-            if (ubicacion !== undefined) recursos[i].ubicacion = ubicacion;
-            if (numero_serie !== undefined && numero_serie !== "") recursos[i].numero_serie = numero_serie;
-
-            if (estado !== undefined) recursos[i].estado = estado;
-
-            res.status(200).json("Recurso actualizado");
-            return;
+            });
         }
-    }
-
-    res.status(404).json("Recurso no encontrado");
+    });
 
 });
 
@@ -402,18 +383,17 @@ app.delete("/api/recursos/:id", function (req, res) {
 
     var id = req.params.id;
 
-    for (var i = 0; i < recursos.length; i++) {
-
-        if (recursos[i].id == id) {
-
-            recursos.splice(i, 1);
-
+    var sql = "DELETE FROM recursos WHERE id = " + id;
+    conexion.query(sql, function (err, resultado) {
+        if (err) {
+            console.log("Error al realizar el delete", err);
+            res.status(500).json("Error al realizar el borrado");
+        } else if (resultado.affectedRows === 0) {
+            res.status(404).json("Recurso no encontrado");
+        } else {
             res.status(200).json("Recurso eliminado");
-            return;
         }
-    }
-
-    res.status(404).json("Recurso no encontrado");
+    });
 
 });
 
@@ -422,27 +402,25 @@ app.get("/api/recursos/:id/reservas", function (req, res) {
 
     var id = req.params.id;
 
-    var existe = false;
-    for (var i = 0; i < recursos.length; i++) {
-        if (recursos[i].id == id) {
-            existe = true;
-            break;
+    var sql = "SELECT id FROM recursos WHERE id = " + id;
+    conexion.query(sql, function (err, recursos) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else if (recursos.length === 0) {
+            res.status(404).json("Recurso no encontrado");
+        } else {
+            var sqlReservas = "SELECT * FROM reservas WHERE recurso = " + id;
+            conexion.query(sqlReservas, function (err, reservas) {
+                if (err) {
+                    console.log("Error al realizar la select", err);
+                    res.status(500).json("Error al realizar la consulta");
+                } else {
+                    res.status(200).json(reservas);
+                }
+            });
         }
-    }
-
-    if (!existe) {
-        res.status(404).json("Recurso no encontrado");
-        return;
-    }
-
-    var resultado = [];
-    for (var i = 0; i < reservas.length; i++) {
-        if (reservas[i].recurso == id) {
-            resultado.push(reservas[i]);
-        }
-    }
-
-    res.status(200).json(resultado);
+    });
 
 });
 
@@ -451,42 +429,40 @@ app.get("/api/recursos/:id/resenyas", function (req, res) {
 
     var id = req.params.id;
 
-    var existe = false;
-    for (var i = 0; i < recursos.length; i++) {
-        if (recursos[i].id == id) {
-            existe = true;
-            break;
+    var sql = "SELECT id FROM recursos WHERE id = " + id;
+    conexion.query(sql, function (err, recursos) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else if (recursos.length === 0) {
+            res.status(404).json("Recurso no encontrado");
+        } else {
+            var sqlResenyas = "SELECT * FROM resenyas WHERE recurso = " + id;
+            conexion.query(sqlResenyas, function (err, resenyas) {
+                if (err) {
+                    console.log("Error al realizar la select", err);
+                    res.status(500).json("Error al realizar la consulta");
+                } else {
+                    res.status(200).json(resenyas);
+                }
+            });
         }
-    }
-
-    if (!existe) {
-        res.status(404).json("Recurso no encontrado");
-        return;
-    }
-
-    var resultado = [];
-    for (var i = 0; i < resenyas.length; i++) {
-        if (resenyas[i].recurso == id) {
-            resultado.push(resenyas[i]);
-        }
-    }
-
-    res.status(200).json(resultado);
+    });
 
 });
 
 // Contar reservas que aún no han sido asignadas (EXAMEN).
 app.get("/api/reservasSinAsignar", function (req, res) {
 
-    var contador = 0;
-
-    for (var i = 0; i < reservas.length; i++) {
-        if (reservas[i].fecha_inicio == null) {
-            contador++;
+    var sql = "SELECT COUNT(*) AS total FROM reservas WHERE fecha_inicio IS NULL";
+    conexion.query(sql, function (err, filas) {
+        if (err) {
+            console.log("Error al realizar la select", err);
+            res.status(500).json("Error al realizar la consulta");
+        } else {
+            res.status(200).json(filas[0].total);
         }
-    }
-
-    res.status(200).json(contador);
+    });
 
 });
 
