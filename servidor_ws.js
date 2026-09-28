@@ -1,5 +1,4 @@
 const { WebSocketServer } = require("ws");
-const datos = require("./datos.js");
 
 const PORT_WS = 3502;
 
@@ -7,6 +6,12 @@ const PORT_WS = 3502;
 const clientes = new Map();
 
 const wss = new WebSocketServer({ port: PORT_WS });
+
+// =================================================================
+// BASE DE DATOS
+// =================================================================
+
+var conexion = require('./conexion_mysql.js');
 
 // =================================================================
 // FUNCIONES
@@ -29,31 +34,40 @@ wss.on("connection", function (ws) {
 
             var idRecurso = msg.idRecurso;
 
-            var infoRecurso = obtenerInfoRecurso(idRecurso);
+            obtenerInfoRecurso(idRecurso, function (infoRecurso) {
 
-            // Nombre del sanitario que provocó la acción
-            var nombreOrigen = obtenerNombreSanitario(infoCliente.id);
+                // Nombre del sanitario que provocó la acción
+                obtenerNombreSanitario(infoCliente.id, function (nombreOrigen) {
 
-            var textoAviso = msg.accion === "iniciada"
-                ? "SE HA INICIADO LA RESERVA DEL " + infoRecurso.texto
-                : "SE HA FINALIZADO LA RESERVA DEL " + infoRecurso.texto;
+                    // Reservas sin finalizar del mismo recurso
+                    conexion.query("SELECT sanitario FROM reservas WHERE recurso = " + idRecurso + " AND fecha_fin IS NULL", function (error, reservasActivas) {
+                        if (error) {
+                            console.log("Error:", error);
+                        } else {
+                            var textoAviso = msg.accion === "iniciada"
+                                ? "SE HA INICIADO LA RESERVA DEL " + infoRecurso.texto
+                                : "SE HA FINALIZADO LA RESERVA DEL " + infoRecurso.texto;
 
-            var aviso = {
-                tipo: "aviso",
-                color: "rojo",
-                fecha: new Date().toISOString(),
-                origen: nombreOrigen,
-                 texto: textoAviso
-            };
+                            var aviso = {
+                                tipo: "aviso",
+                                color: "rojo",
+                                fecha: new Date().toISOString(),
+                                origen: nombreOrigen,
+                                texto: textoAviso
+                            };
 
-            // Enviar solo a sanitarios con reserva activa (sin fecha_fin) del mismo recurso
-            clientes.forEach(function (info, clienteWs) {
-                if (clienteWs === ws) return;
-                if (info.rol !== "sanitario") return;
-                if (!tieneReservaActiva(info.id, idRecurso)) return;
-                if (clienteWs.readyState === 1) {
-                    clienteWs.send(JSON.stringify(aviso));
-                }
+                            // Enviar solo a sanitarios con reserva activa (sin fecha_fin) del mismo recurso
+                            clientes.forEach(function (info, clienteWs) {
+                                if (clienteWs === ws) return;
+                                if (info.rol !== "sanitario") return;
+                                if (!tieneReservaActiva(info.id, reservasActivas)) return;
+                                if (clienteWs.readyState === 1) {
+                                    clienteWs.send(JSON.stringify(aviso));
+                                }
+                            });
+                        }
+                    });
+                });
             });
             return;
         }
@@ -63,23 +77,26 @@ wss.on("connection", function (ws) {
             if (!infoCliente || infoCliente.rol !== "gestor") return;
 
             var idRecurso = msg.idRecurso;
-            var infoRecurso = obtenerInfoRecurso(idRecurso);
-            var nombreOrigen = obtenerNombreGestor(infoCliente.id);
 
-            var aviso = {
-                tipo: "aviso",
-                color: "azul",
-                fecha: new Date().toISOString(),
-                origen: nombreOrigen,
-                texto: "SE HA CREADO UN NUEVO RECURSO " + infoRecurso.texto
-            };
+            obtenerInfoRecurso(idRecurso, function (infoRecurso) {
+                obtenerNombreGestor(infoCliente.id, function (nombreOrigen) {
 
-            // Enviar a todos los sanitarios conectados
-            clientes.forEach(function (info, clienteWs) {
-                if (info.rol !== "sanitario") return;
-                if (clienteWs.readyState === 1) {
-                    clienteWs.send(JSON.stringify(aviso));
-                }
+                    var aviso = {
+                        tipo: "aviso",
+                        color: "azul",
+                        fecha: new Date().toISOString(),
+                        origen: nombreOrigen,
+                        texto: "SE HA CREADO UN NUEVO RECURSO " + infoRecurso.texto
+                    };
+
+                    // Enviar a todos los sanitarios conectados
+                    clientes.forEach(function (info, clienteWs) {
+                        if (info.rol !== "sanitario") return;
+                        if (clienteWs.readyState === 1) {
+                            clienteWs.send(JSON.stringify(aviso));
+                        }
+                    });
+                });
             });
             return;
         }
@@ -89,23 +106,26 @@ wss.on("connection", function (ws) {
             if (!infoCliente || infoCliente.rol !== "sanitario") return;
 
             var idRecurso = msg.idRecurso;
-            var infoRecurso = obtenerInfoRecurso(idRecurso);
-            var nombreOrigen = obtenerNombreSanitario(infoCliente.id);
 
-            var aviso = {
-                tipo: "aviso",
-                color: "verde",
-                fecha: new Date().toISOString(),
-                origen: nombreOrigen,
-                texto: "SE HA CREADO UNA RESEÑA PARA " + infoRecurso.texto + " Y PUNTUACIÓN " + msg.puntuacion
-            };
+            obtenerInfoRecurso(idRecurso, function (infoRecurso) {
+                obtenerNombreSanitario(infoCliente.id, function (nombreOrigen) {
 
-            // Enviar a todos los gestores conectados
-            clientes.forEach(function (info, clienteWs) {
-                if (info.rol !== "gestor") return;
-                if (clienteWs.readyState === 1) {
-                    clienteWs.send(JSON.stringify(aviso));
-                }
+                    var aviso = {
+                        tipo: "aviso",
+                        color: "verde",
+                        fecha: new Date().toISOString(),
+                        origen: nombreOrigen,
+                        texto: "SE HA CREADO UNA RESEÑA PARA " + infoRecurso.texto + " Y PUNTUACIÓN " + msg.puntuacion
+                    };
+
+                    // Enviar a todos los gestores conectados
+                    clientes.forEach(function (info, clienteWs) {
+                        if (info.rol !== "gestor") return;
+                        if (clienteWs.readyState === 1) {
+                            clienteWs.send(JSON.stringify(aviso));
+                        }
+                    });
+                });
             });
             return;
         }
@@ -133,48 +153,27 @@ console.log("-----------------------------------------");
 // =================================================================
 
 // Construye el texto descriptivo del recurso para el aviso.
-function obtenerInfoRecurso(idRecurso) {
-    var recurso = null;
-    for (var i = 0; i < datos.recursos.length; i++) {
-        if (datos.recursos[i].id == idRecurso) {
-            recurso = datos.recursos[i];
-            break;
-        }
-    }
-    if (!recurso) return { texto: "RECURSO DESCONOCIDO" };
-
-    var modelo = null;
-    for (var i = 0; i < datos.modelos.length; i++) {
-        if (datos.modelos[i].id == recurso.modelo) {
-            modelo = datos.modelos[i];
-            break;
-        }
-    }
-
-    var categoria = null;
-    if (modelo) {
-        for (var i = 0; i < datos.categorias.length; i++) {
-            if (datos.categorias[i].id == modelo.categoria) {
-                categoria = datos.categorias[i];
-                break;
+function obtenerInfoRecurso(idRecurso, callback) {
+    conexion.query("SELECT recursos.numero_serie, modelos.nombre AS modelo, categorias.nombre AS categoria FROM recursos JOIN modelos ON recursos.modelo = modelos.id JOIN categorias ON modelos.categoria = categorias.id WHERE recursos.id = " + idRecurso, function (error, recursos) {
+        if (error) {
+            callback({ texto: "RECURSO DESCONOCIDO" });
+        } else {
+            if (recursos.length == 0) {
+                callback({ texto: "RECURSO DESCONOCIDO" });
+            } else {
+                var recurso = recursos[0];
+                callback({
+                    texto: recurso.categoria.toUpperCase() + " MODELO " + recurso.modelo.toUpperCase() + " CON CÓDIGO " + recurso.numero_serie.toUpperCase()
+                });
             }
         }
-    }
-
-    var nombreCategoria = categoria ? categoria.nombre.toUpperCase() : "RECURSO";
-    var nombreModelo = modelo ? modelo.nombre : "DESCONOCIDO";
-    var serie = recurso.numero_serie;
-
-    return {
-        texto: nombreCategoria + " MODELO " + nombreModelo + " CON CÓDIGO " + serie
-    };
+    });
 }
 
-// Comprueba si un sanitario tiene alguna reserva activa (iniciada, no finalizada) de un recurso.
-function tieneReservaActiva(idSanitario, idRecurso) {
-    for (var i = 0; i < datos.reservas.length; i++) {
-        var r = datos.reservas[i];
-        if (r.sanitario == idSanitario && r.recurso == idRecurso && r.fecha_fin == null) {
+// Comprueba si un sanitario está entre las reservas activas (sin finalizar) de un recurso.
+function tieneReservaActiva(idSanitario, reservasActivas) {
+    for (var i = 0; i < reservasActivas.length; i++) {
+        if (reservasActivas[i].sanitario == idSanitario) {
             return true;
         }
     }
@@ -182,21 +181,31 @@ function tieneReservaActiva(idSanitario, idRecurso) {
 }
 
 // Devuelve el nombre completo de un sanitario.
-function obtenerNombreSanitario(idSanitario) {
-    for (var i = 0; i < datos.sanitarios.length; i++) {
-        if (datos.sanitarios[i].id == idSanitario) {
-            return datos.sanitarios[i].nombre + " " + datos.sanitarios[i].apellidos;
+function obtenerNombreSanitario(idSanitario, callback) {
+    conexion.query("SELECT nombre, apellidos FROM sanitarios WHERE id = " + idSanitario, function (error, sanitarios) {
+        if (error) {
+            callback("Sanitario desconocido");
+        } else {
+            if (sanitarios.length == 0) {
+                callback("Sanitario desconocido");
+            } else {
+                callback(sanitarios[0].nombre + " " + sanitarios[0].apellidos);
+            }
         }
-    }
-    return "Sanitario desconocido";
+    });
 }
 
 // Devuelve el nombre completo de un gestor.
-function obtenerNombreGestor(idGestor) {
-    for (var i = 0; i < datos.gestores.length; i++) {
-        if (datos.gestores[i].id == idGestor) {
-            return datos.gestores[i].nombre + " " + datos.gestores[i].apellidos;
+function obtenerNombreGestor(idGestor, callback) {
+    conexion.query("SELECT nombre, apellidos FROM gestores WHERE id = " + idGestor, function (error, gestores) {
+        if (error) {
+            callback("Gestor desconocido");
+        } else {
+            if (gestores.length == 0) {
+                callback("Gestor desconocido");
+            } else {
+                callback(gestores[0].nombre + " " + gestores[0].apellidos);
+            }
         }
-    }
-    return "Gestor desconocido";
+    });
 }
