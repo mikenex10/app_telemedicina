@@ -294,28 +294,15 @@ app.post("/api/recursos", function (req, res) {
         return;
     }
 
-    var sql = "SELECT (SELECT COUNT(*) FROM modelos WHERE id = " + modelo + ") AS existeModelo, "
-        + "(SELECT COUNT(*) FROM ubicaciones WHERE id = " + ubicacion + ") AS existeUbicacion";
-    conexion.query(sql, function (err, filas) {
+    var sql = "INSERT INTO recursos (modelo, ubicacion, numero_serie, estado) VALUES ("
+        + modelo + "," + ubicacion + ",'" + numero_serie + "'," + estado + ")";
+    conexion.query(sql, function (err, resultado) {
         if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else if (filas[0].existeModelo === 0) {
-            res.status(403).json("El modelo no existe");
-        } else if (filas[0].existeUbicacion === 0) {
-            res.status(403).json("La ubicación no existe");
+            console.log("Error al realizar el insert", err);
+            res.status(500).json("Error al realizar la insercion");
         } else {
-            var sqlInsert = "INSERT INTO recursos (modelo, ubicacion, numero_serie, estado) VALUES ("
-                + modelo + "," + ubicacion + ",'" + numero_serie + "'," + estado + ")";
-            conexion.query(sqlInsert, function (err, resultado) {
-                if (err) {
-                    console.log("Error al realizar el insert", err);
-                    res.status(500).json("Error al realizar la insercion");
-                } else {
-                    console.log("Recurso insertado:", resultado.insertId);
-                    res.status(201).json(resultado.insertId);
-                }
-            });
+            console.log("Recurso insertado:", resultado.insertId);
+            res.status(201).json(resultado.insertId);
         }
     });
 
@@ -331,48 +318,24 @@ app.put("/api/recursos/:id", function (req, res) {
     var numero_serie = req.body.numero_serie;
     var estado = req.body.estado;
 
-    var sql = "SELECT * FROM recursos WHERE id = " + id;
-    conexion.query(sql, function (err, recursos) {
+    if (modelo === undefined || ubicacion === undefined || !numero_serie || estado === undefined) {
+        res.status(403).json("Faltan datos obligatorios");
+        return;
+    }
+
+    var sql = "UPDATE recursos SET modelo = " + modelo
+        + ", ubicacion = " + ubicacion
+        + ", numero_serie = '" + numero_serie
+        + "', estado = " + estado
+        + " WHERE id = " + id;
+    conexion.query(sql, function (err, resultado) {
         if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else if (recursos.length === 0) {
+            console.log("Error al realizar el update", err);
+            res.status(500).json("Error al realizar la actualización");
+        } else if (resultado.affectedRows === 0) {
             res.status(404).json("Recurso no encontrado");
         } else {
-            var recurso = recursos[0];
-
-            // Si un campo no llega en la petición, se mantiene el valor actual.
-            if (modelo === undefined) modelo = recurso.modelo;
-            if (ubicacion === undefined) ubicacion = recurso.ubicacion;
-            if (numero_serie === undefined || numero_serie === "") numero_serie = recurso.numero_serie;
-            if (estado === undefined) estado = recurso.estado;
-
-            var sqlExiste = "SELECT (SELECT COUNT(*) FROM modelos WHERE id = " + modelo + ") AS existeModelo, "
-                + "(SELECT COUNT(*) FROM ubicaciones WHERE id = " + ubicacion + ") AS existeUbicacion";
-            conexion.query(sqlExiste, function (err, filas) {
-                if (err) {
-                    console.log("Error al realizar la select", err);
-                    res.status(500).json("Error al realizar la consulta");
-                } else if (filas[0].existeModelo === 0) {
-                    res.status(403).json("El modelo no existe");
-                } else if (filas[0].existeUbicacion === 0) {
-                    res.status(403).json("La ubicación no existe");
-                } else {
-                    var sqlUpdate = "UPDATE recursos SET modelo = " + modelo
-                        + ", ubicacion = " + ubicacion
-                        + ", numero_serie = '" + numero_serie
-                        + "', estado = " + estado
-                        + " WHERE id = " + id;
-                    conexion.query(sqlUpdate, function (err, resultado) {
-                        if (err) {
-                            console.log("Error al realizar el update", err);
-                            res.status(500).json("Error al realizar la actualización");
-                        } else {
-                            res.status(200).json("Recurso actualizado");
-                        }
-                    });
-                }
-            });
+            res.status(200).json("Recurso actualizado");
         }
     });
 
@@ -401,24 +364,13 @@ app.delete("/api/recursos/:id", function (req, res) {
 app.get("/api/recursos/:id/reservas", function (req, res) {
 
     var id = req.params.id;
-
-    var sql = "SELECT id FROM recursos WHERE id = " + id;
-    conexion.query(sql, function (err, recursos) {
+    var sql = "SELECT * FROM reservas WHERE recurso = " + id;
+    conexion.query(sql, function (err, reservas) {
         if (err) {
             console.log("Error al realizar la select", err);
             res.status(500).json("Error al realizar la consulta");
-        } else if (recursos.length === 0) {
-            res.status(404).json("Recurso no encontrado");
         } else {
-            var sqlReservas = "SELECT * FROM reservas WHERE recurso = " + id;
-            conexion.query(sqlReservas, function (err, reservas) {
-                if (err) {
-                    console.log("Error al realizar la select", err);
-                    res.status(500).json("Error al realizar la consulta");
-                } else {
-                    res.status(200).json(reservas);
-                }
-            });
+            res.status(200).json(reservas);
         }
     });
 
@@ -428,24 +380,13 @@ app.get("/api/recursos/:id/reservas", function (req, res) {
 app.get("/api/recursos/:id/resenyas", function (req, res) {
 
     var id = req.params.id;
-
-    var sql = "SELECT id FROM recursos WHERE id = " + id;
-    conexion.query(sql, function (err, recursos) {
+    var sql = "SELECT * FROM resenyas WHERE recurso = " + id;
+    conexion.query(sql, function (err, resenyas) {
         if (err) {
             console.log("Error al realizar la select", err);
             res.status(500).json("Error al realizar la consulta");
-        } else if (recursos.length === 0) {
-            res.status(404).json("Recurso no encontrado");
         } else {
-            var sqlResenyas = "SELECT * FROM resenyas WHERE recurso = " + id;
-            conexion.query(sqlResenyas, function (err, resenyas) {
-                if (err) {
-                    console.log("Error al realizar la select", err);
-                    res.status(500).json("Error al realizar la consulta");
-                } else {
-                    res.status(200).json(resenyas);
-                }
-            });
+            res.status(200).json(resenyas);
         }
     });
 
