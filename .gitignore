@@ -1,5 +1,7 @@
 # Dependencias
 node_modules/
+app_movil/platforms/
+app_movil/plugins/
 
 # Variables de entorno / secretos
 .env

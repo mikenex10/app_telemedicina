@@ -82,9 +82,9 @@ function actualizarTablaAvisos() {
             colorFondo = "var(--aviso-rojo)";
         }
         return "<tr style='background:" + colorFondo + ";'>" +
-            "<td>" + formatearFecha(aviso.fecha) + "</td>" +
-            "<td>" + aviso.origen + "</td>" +
-            "<td>" + aviso.texto + "</td>" +
+            "<td data-label='Fecha'>" + formatearFecha(aviso.fecha) + "</td>" +
+            "<td data-label='Origen'>" + aviso.origen + "</td>" +
+            "<td data-label='Aviso'>" + aviso.texto + "</td>" +
             "</tr>";
     }).join("");
 
@@ -214,8 +214,8 @@ function mostrarTablas(listaReservas) {
         if (!reserva.fecha_inicio) {
             tablaPendientes.innerHTML += `
                 <tr>
-                    <td>${reserva.recurso}</td>
-                    <td>${formatearFecha(reserva.fecha_peticion)}</td>
+                    <td data-label="Recurso">${reserva.recurso}</td>
+                    <td data-label="Fecha de petición">${formatearFecha(reserva.fecha_peticion)}</td>
                     <td><button onclick="retirar(${reserva.id})">Retirar</button></td>
                     <td><button class="danger" onclick="cancelar(${reserva.id})">X</button></td>
                 </tr>
@@ -227,9 +227,9 @@ function mostrarTablas(listaReservas) {
 
             tablaRealizadas.innerHTML += `
                 <tr>
-                    <td>${reserva.recurso}</td>
-                    <td>${formatearFecha(reserva.fecha_inicio)}</td>
-                    <td>${casilla_fin}</td>
+                    <td data-label="Recurso">${reserva.recurso}</td>
+                    <td data-label="Fecha de inicio">${formatearFecha(reserva.fecha_inicio)}</td>
+                    <td data-label="Fecha de devolución">${casilla_fin}</td>
                     <td>
                         <button onclick="prepararResenya(${reserva.recurso})">Reseña</button>
                     </td>
@@ -439,7 +439,7 @@ function nuevaReserva() {
             </div>
 
             <hr>
-            <table id="tablaBusqueda"; width:100%;">
+            <table id="tablaBusqueda">
                 <thead>
                     <tr>
                         <th>N. Serie</th>
@@ -467,7 +467,7 @@ function nuevaReserva() {
     obtenerModelos(function(listaModelos) {
         var resultadoTotal = [];
 
-        document.getElementById("tablaBusqueda").style.display = "table";
+        document.getElementById("tablaBusqueda").style.display = "";
         var cuerpo = document.getElementById("cuerpoBusqueda");
         cuerpo.innerHTML = "<tr><td colspan='5'>Cargando...</td></tr>";
 
@@ -521,10 +521,10 @@ function mostrarResultados(lista) {
 
             cuerpo.innerHTML += `
                 <tr>
-                    <td>${rec.numero_serie}</td>
-                    <td>${rec.ubicacion_nombre}</td>
-                    <td style="text-align:center;"><strong>${rec.valoracion}</strong></td>
-                    <td>${rec.estado_texto}</td>
+                    <td data-label="N. Serie">${rec.numero_serie}</td>
+                    <td data-label="Ubicación">${rec.ubicacion_nombre}</td>
+                    <td data-label="Valoración" style="text-align:center;"><strong>${rec.valoracion}</strong></td>
+                    <td data-label="Estado">${rec.estado_texto}</td>
                     <td>${botonAccion}</td>
                 </tr>
             `;
@@ -536,7 +536,7 @@ function mostrarResultados(lista) {
 function buscarParaReservar() {
     var idMod = document.getElementById("sel_mod").value;
 
-    document.getElementById("tablaBusqueda").style.display = "table";
+    document.getElementById("tablaBusqueda").style.display = "";
     var cuerpo = document.getElementById("cuerpoBusqueda");
     cuerpo.innerHTML = "<tr><td colspan='5'>Cargando recursos operativos...</td></tr>";
 
