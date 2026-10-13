@@ -84,9 +84,9 @@ function actualizarTablaAvisos() {
             colorFondo = "var(--aviso-rojo)";
         }
         return "<tr style='background:" + colorFondo + ";'>" +
-            "<td data-label='Fecha'>" + formatearFecha(aviso.fecha) + "</td>" +
-            "<td data-label='Origen'>" + aviso.origen + "</td>" +
-            "<td data-label='Aviso'>" + aviso.texto + "</td>" +
+            "<td>" + formatearFecha(aviso.fecha) + "</td>" +
+            "<td>" + aviso.origen + "</td>" +
+            "<td class='linea'>" + aviso.texto + "</td>" +
             "</tr>";
     }).join("");
 
@@ -216,28 +216,30 @@ function mostrarTablas(listaReservas) {
         if (!reserva.fecha_inicio) {
             tablaPendientes.innerHTML += `
                 <tr>
-                    <td data-label="Recurso">${reserva.recurso}</td>
-                    <td data-label="Fecha de petición">${formatearFecha(reserva.fecha_peticion)}</td>
+                    <td>${reserva.categoria_nombre} ${reserva.modelo_nombre} (id ${reserva.recurso})</td>
+                    <td data-label="Petición">${formatearFecha(reserva.fecha_peticion)}</td>
                     <td><button onclick="retirar(${reserva.id})">Retirar</button></td>
                     <td><button class="danger" onclick="cancelar(${reserva.id})">X</button></td>
                 </tr>
             `;
         } else {
-            var casilla_fin = (reserva.fecha_fin != null)
-                ? formatearFecha(reserva.fecha_fin)
+            var boton = (reserva.fecha_fin != null)
+                ? `<button onclick="prepararResenya(${reserva.recurso})">Reseña</button>`
                 : `<button onclick="devolver(${reserva.id})">Devolver</button>`;
 
             tablaRealizadas.innerHTML += `
                 <tr>
-                    <td data-label="Recurso">${reserva.recurso}</td>
-                    <td data-label="Fecha de inicio">${formatearFecha(reserva.fecha_inicio)}</td>
-                    <td data-label="Fecha de devolución">${casilla_fin}</td>
-                    <td>
-                        <button onclick="prepararResenya(${reserva.recurso})">Reseña</button>
-                    </td>
+                    <td>${reserva.categoria_nombre} ${reserva.modelo_nombre} (id ${reserva.recurso})</td>
+                    <td data-label="Inicio">${formatearFecha(reserva.fecha_inicio)}</td>
+                    <td data-label="Devolución">${formatearFecha(reserva.fecha_fin)}</td>
+                    <td>${boton}</td>
                 </tr>
             `;
         }
+    }
+
+    if (tablaPendientes.innerHTML == "") {
+        tablaPendientes.innerHTML = `<tr><td colspan="4" class="vacio">No hay reservas pendientes</td></tr>`;
     }
 }
 
@@ -245,9 +247,14 @@ function mostrarTablas(listaReservas) {
 function mostrarHome() {
     obtenerSanitario(sanitarioActual, function(s) {
         textoUsuario.innerHTML = `
-            ${s.nombre} ${s.apellidos}
-            <button onclick="editarPerfil()">Editar perfil</button>
-            <button onclick="logout()">Salir</button>
+            <span class="nombre-usuario">${s.nombre} ${s.apellidos}</span>
+            <div class="menu">
+                <button class="menu-boton" onclick="abrirMenu()">⋮</button>
+                <div id="menuOpciones" class="menu-opciones hidden">
+                    <button onclick="abrirMenu(); editarPerfil()">Editar perfil</button>
+                    <button onclick="logout()">Salir</button>
+                </div>
+            </div>
         `;
     });
 
@@ -265,14 +272,13 @@ function mostrarHome() {
 
         <div class="card">
             <h2>Reservas realizadas</h2>
+            <button class="primary" onclick="nuevaReserva()">Nueva Reserva</button>
             <table>
                 <thead>
                     <tr><th>Recurso</th><th>Fecha de inicio</th><th>Fecha de devolución</th><th>Reseña</th></tr>
                 </thead>
                 <tbody id="tablaRealizadas"></tbody>
             </table>
-            <br>
-            <button class="primary" onclick="nuevaReserva()">Nueva Reserva</button>
         </div>
 
         <div class="card">
@@ -420,6 +426,11 @@ function cancelar(idReserva) {
 }
 
 // Cierra la sesión del sanitario.
+// Abre o cierra el menú de opciones del usuario
+function abrirMenu() {
+    document.getElementById("menuOpciones").classList.toggle("hidden");
+}
+
 function logout() {
     cerrarWS();
     sanitarioActual = null;
@@ -455,10 +466,9 @@ function nuevaReserva() {
             <table id="tablaBusqueda">
                 <thead>
                     <tr>
-                        <th>N. Serie</th>
-                        <th>Ubicación</th>
-                        <th>Valoración</th>
+                        <th>Recurso</th>
                         <th>Estado</th>
+                        <th>Valoración</th>
                         <th>Acción</th>
                     </tr>
                 </thead>
@@ -482,7 +492,7 @@ function nuevaReserva() {
 
         document.getElementById("tablaBusqueda").style.display = "";
         var cuerpo = document.getElementById("cuerpoBusqueda");
-        cuerpo.innerHTML = "<tr><td colspan='5'>Cargando...</td></tr>";
+        cuerpo.innerHTML = "<tr><td colspan='4'>Cargando...</td></tr>";
 
         var i = 0;
         function siguienteModelo() {
@@ -508,7 +518,7 @@ function mostrarResultados(lista) {
         cuerpo.innerHTML = "";
 
         if (lista.length === 0) {
-            cuerpo.innerHTML = "<tr><td colspan='5'>No hay recursos operativos.</td></tr>";
+            cuerpo.innerHTML = "<tr><td colspan='4'>No hay recursos operativos.</td></tr>";
             return;
         }
 
@@ -534,10 +544,9 @@ function mostrarResultados(lista) {
 
             cuerpo.innerHTML += `
                 <tr>
-                    <td data-label="N. Serie">${rec.numero_serie}</td>
-                    <td data-label="Ubicación">${rec.ubicacion_nombre}</td>
-                    <td data-label="Valoración" style="text-align:center;"><strong>${rec.valoracion}</strong></td>
-                    <td data-label="Estado">${rec.estado_texto}</td>
+                    <td>${rec.categoria_nombre} ${rec.modelo_nombre} ${rec.numero_serie}</td>
+                    <td class="linea">${rec.estado_texto} - ${rec.ubicacion_nombre}</td>
+                    <td class="linea">${rec.valoracion}</td>
                     <td>${botonAccion}</td>
                 </tr>
             `;
@@ -551,7 +560,7 @@ function buscarParaReservar() {
 
     document.getElementById("tablaBusqueda").style.display = "";
     var cuerpo = document.getElementById("cuerpoBusqueda");
-    cuerpo.innerHTML = "<tr><td colspan='5'>Cargando recursos operativos...</td></tr>";
+    cuerpo.innerHTML = "<tr><td colspan='4'>Cargando recursos operativos...</td></tr>";
 
     obtenerRecursosFiltrados(idMod, function(lista) {
         mostrarResultados(lista);

@@ -29,7 +29,7 @@ function obtenerSanitario(idSanitario, callback) {
 
 // Obtener reservas del sanitario logueado.
 function obtenerReservas(idSanitario, callback) {
-    conexion.query("SELECT * FROM reservas WHERE sanitario = " + idSanitario, function (error, reservas) {
+    conexion.query("SELECT reservas.*, categorias.nombre AS categoria_nombre, modelos.nombre AS modelo_nombre, recursos.numero_serie FROM reservas JOIN recursos ON reservas.recurso = recursos.id JOIN modelos ON recursos.modelo = modelos.id JOIN categorias ON modelos.categoria = categorias.id WHERE reservas.sanitario = " + idSanitario + " ORDER BY reservas.fecha_peticion DESC", function (error, reservas) {
         if (error) {
             callback(null);
         } else {
@@ -78,7 +78,7 @@ function crearSanitario(nombre, apellidos, usuario, password, callback) {
 
 // Obtiener los recursos operativos de un modelo en específico.
 function obtenerRecursosFiltrados(idModelo, callback) {
-    conexion.query("SELECT recursos.id, recursos.numero_serie, ubicaciones.nombre AS ubicacion_nombre FROM recursos JOIN ubicaciones ON recursos.ubicacion = ubicaciones.id WHERE recursos.modelo = " + idModelo + " AND recursos.estado = 0", function (error, recursos) {
+    conexion.query("SELECT recursos.id, recursos.numero_serie, ubicaciones.nombre AS ubicacion_nombre, modelos.nombre AS modelo_nombre, categorias.nombre AS categoria_nombre FROM recursos JOIN ubicaciones ON recursos.ubicacion = ubicaciones.id JOIN modelos ON recursos.modelo = modelos.id JOIN categorias ON modelos.categoria = categorias.id WHERE recursos.modelo = " + idModelo + " AND recursos.estado = 0", function (error, recursos) {
         if (error) {
             callback(null);
         } else {
@@ -96,6 +96,14 @@ function obtenerRecursosFiltrados(idModelo, callback) {
                                 var rec = recursos[i];
                                 var tiempo = calcularTiempoRestante(rec.id, reservas);
                                 var media = obtenerMediaRecurso(rec.id, resenyas);
+                                var sinDevolver = estaSinDevolver(rec.id, reservas);
+
+                                var textoEstado = "Disponible";
+                                if (tiempo > 0) {
+                                    textoEstado = "Ocupado (" + tiempo + "h restante)";
+                                } else if (sinDevolver) {
+                                    textoEstado = "Ocupado (sin devolver)";
+                                }
 
                                 var textoValoracion = "Sin valorar";
                                 if (media > 0) {
@@ -106,9 +114,11 @@ function obtenerRecursosFiltrados(idModelo, callback) {
                                     id: rec.id,
                                     numero_serie: rec.numero_serie,
                                     ubicacion_nombre: rec.ubicacion_nombre,
-                                    disponible: tiempo === 0,
+                                    modelo_nombre: rec.modelo_nombre,
+                                    categoria_nombre: rec.categoria_nombre,
+                                    disponible: tiempo === 0 && !sinDevolver,
                                     valoracion: textoValoracion,
-                                    estado_texto: tiempo === 0 ? "Disponible" : "Ocupado (" + tiempo + "h restante)"
+                                    estado_texto: textoEstado
                                 });
                             }
 
@@ -144,6 +154,15 @@ function calcularTiempoRestante(idRecurso, reservas) {
     
     return Math.max(0, Math.round(tiempoTotal * 10) / 10);
 }
+// AUXILIAR. Comprueba si alguien tiene el recurso retirado sin devolver.
+function estaSinDevolver(idRecurso, reservas) {
+    for (var i = 0; i < reservas.length; i++) {
+        if (reservas[i].recurso == idRecurso && reservas[i].fecha_inicio && !reservas[i].fecha_fin) {
+            return true;
+        }
+    }
+    return false;
+}
 // AUXILIAR. Obtiene la valoración media de un recurso.
 function obtenerMediaRecurso(idRecurso, resenyas) {
     var suma = 0;
@@ -164,13 +183,22 @@ function reservarRecurso(datosInput, callback) {
         fechaInicio = "NOW()";
     }
 
-    conexion.query("INSERT INTO reservas (recurso, sanitario, horas_estimadas, fecha_peticion, fecha_inicio, fecha_fin) VALUES (" + datosInput.recurso + "," + datosInput.sanitario + "," + datosInput.horas_estimadas + ", NOW(), " + fechaInicio + ", NULL)", function (error, datos) {
+    conexion.query("SELECT * FROM reservas WHERE recurso = " + datosInput.recurso + " AND fecha_inicio IS NOT NULL AND fecha_fin IS NULL", function (error, enUso) {
         if (error) {
             console.log("Error:", error);
             callback(null);
+        } else if (datosInput.retirar && enUso.length > 0) {
+            callback(null);
         } else {
-            console.log("RPC: Nueva reserva creada ID " + datos.insertId);
-            callback(datos.insertId);
+            conexion.query("INSERT INTO reservas (recurso, sanitario, horas_estimadas, fecha_peticion, fecha_inicio, fecha_fin) VALUES (" + datosInput.recurso + "," + datosInput.sanitario + "," + datosInput.horas_estimadas + ", NOW(), " + fechaInicio + ", NULL)", function (error, datos) {
+                if (error) {
+                    console.log("Error:", error);
+                    callback(null);
+                } else {
+                    console.log("RPC: Nueva reserva creada ID " + datos.insertId);
+                    callback(datos.insertId);
+                }
+            });
         }
     });
 }
@@ -190,17 +218,29 @@ function crearResenya(idRecurso, idSanitario, valor, descripcion, callback) {
 
 // Iniciar una reserva (retirar recurso)
 function iniciarReserva(idReserva, callback) {
-    conexion.query("UPDATE reservas SET fecha_inicio = NOW() WHERE id = " + idReserva, function (error, datos) {
-        if (error) {
-            console.log("Error:", error);
+    conexion.query("SELECT recurso FROM reservas WHERE id = " + idReserva, function (error, reservas) {
+        if (error || reservas.length == 0) {
             callback(false);
         } else {
-            if (datos.affectedRows == 0) {
-                callback(false);
-            } else {
-                console.log("RPC: Recurso retirado. Reserva " + idReserva + " iniciada.");
-                callback(true);
-            }
+            conexion.query("SELECT * FROM reservas WHERE recurso = " + reservas[0].recurso + " AND fecha_inicio IS NOT NULL AND fecha_fin IS NULL", function (error, enUso) {
+                if (error || enUso.length > 0) {
+                    callback(false);
+                } else {
+                    conexion.query("UPDATE reservas SET fecha_inicio = NOW() WHERE id = " + idReserva, function (error, datos) {
+                        if (error) {
+                            console.log("Error:", error);
+                            callback(false);
+                        } else {
+                            if (datos.affectedRows == 0) {
+                                callback(false);
+                            } else {
+                                console.log("RPC: Recurso retirado. Reserva " + idReserva + " iniciada.");
+                                callback(true);
+                            }
+                        }
+                    });
+                }
+            });
         }
     });
 }

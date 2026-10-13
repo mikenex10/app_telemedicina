@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 28-09-2026 a las 23:34:20
+-- Tiempo de generación: 13-10-2026 a las 14:45:00
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -20,6 +20,27 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `telemedicina2026`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `areas`
+--
+
+CREATE TABLE `areas` (
+  `id` int(11) NOT NULL,
+  `codigo_postal` varchar(5) NOT NULL,
+  `nombre` varchar(50) NOT NULL,
+  `gestor` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `areas`
+--
+
+INSERT INTO `areas` (`id`, `codigo_postal`, `nombre`, `gestor`) VALUES
+(1, '03300', 'Orihuela', 1),
+(3, '03690', 'San Vicente', 1);
 
 -- --------------------------------------------------------
 
@@ -237,7 +258,7 @@ INSERT INTO `reservas` (`id`, `recurso`, `sanitario`, `horas_estimadas`, `fecha_
 (4, 30, 4, 2, '2026-01-18 00:00:00', '2026-01-18 00:00:00', '2026-01-18 00:00:00'),
 (5, 9, 1, 4, '2026-01-20 00:00:00', NULL, NULL),
 (6, 5, 2, 2, '2026-01-22 00:00:00', NULL, NULL),
-(7, 5, 3, 6, '2026-01-23 00:00:00', '2026-01-23 00:00:00', NULL),
+(7, 5, 3, 6, '2026-01-23 00:00:00', '2026-01-23 00:00:00', '2026-01-23 06:00:00'),
 (8, 12, 4, 1, '2026-01-25 00:00:00', '2026-01-25 00:00:00', '2026-01-25 00:00:00'),
 (9, 30, 2, 4, '2026-01-26 00:00:00', NULL, NULL),
 (10, 21, 1, 3, '2026-01-27 00:00:00', '2026-01-27 00:00:00', '2026-01-27 00:00:00');
@@ -253,18 +274,19 @@ CREATE TABLE `sanitarios` (
   `nombre` varchar(50) NOT NULL,
   `apellidos` varchar(50) NOT NULL,
   `usuario` varchar(50) NOT NULL,
-  `password` varchar(50) NOT NULL
+  `password` varchar(50) NOT NULL,
+  `area` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `sanitarios`
 --
 
-INSERT INTO `sanitarios` (`id`, `nombre`, `apellidos`, `usuario`, `password`) VALUES
-(1, 'Raquel', 'Gosálbez Sirvent', 'raquel', '1234'),
-(2, 'Fernando', 'Chillón Hernández', 'fernando', '1234'),
-(3, 'Guillermo', 'Varela Carbajal', 'guillermo', '1234'),
-(4, 'Marina', 'Hernández Gómez', 'marina', '1234');
+INSERT INTO `sanitarios` (`id`, `nombre`, `apellidos`, `usuario`, `password`, `area`) VALUES
+(1, 'Raquel', 'Gosálbez Sirvent', 'raquel', '1234', 1),
+(2, 'Fernando', 'Chillón Hernández', 'fernando', '1234', NULL),
+(3, 'Guillermo', 'Varela Carbajal', 'guillermo', '1234', NULL),
+(4, 'Marina', 'Hernández Gómez', 'marina', '1234', NULL);
 
 -- --------------------------------------------------------
 
@@ -293,6 +315,14 @@ INSERT INTO `ubicaciones` (`id`, `nombre`) VALUES
 --
 -- Índices para tablas volcadas
 --
+
+--
+-- Indices de la tabla `areas`
+--
+ALTER TABLE `areas`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `areas_codigo_postal` (`codigo_postal`),
+  ADD KEY `areas_gestor` (`gestor`);
 
 --
 -- Indices de la tabla `categorias`
@@ -341,7 +371,8 @@ ALTER TABLE `reservas`
 -- Indices de la tabla `sanitarios`
 --
 ALTER TABLE `sanitarios`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `sanitarios_area` (`area`);
 
 --
 -- Indices de la tabla `ubicaciones`
@@ -352,6 +383,12 @@ ALTER TABLE `ubicaciones`
 --
 -- AUTO_INCREMENT de las tablas volcadas
 --
+
+--
+-- AUTO_INCREMENT de la tabla `areas`
+--
+ALTER TABLE `areas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `categorias`
@@ -375,7 +412,7 @@ ALTER TABLE `modelos`
 -- AUTO_INCREMENT de la tabla `recursos`
 --
 ALTER TABLE `recursos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT de la tabla `resenyas`
@@ -406,6 +443,12 @@ ALTER TABLE `ubicaciones`
 --
 
 --
+-- Filtros para la tabla `areas`
+--
+ALTER TABLE `areas`
+  ADD CONSTRAINT `areas_gestor` FOREIGN KEY (`gestor`) REFERENCES `gestores` (`id`);
+
+--
 -- Filtros para la tabla `modelos`
 --
 ALTER TABLE `modelos`
@@ -431,6 +474,12 @@ ALTER TABLE `resenyas`
 ALTER TABLE `reservas`
   ADD CONSTRAINT `reservas_recurso` FOREIGN KEY (`recurso`) REFERENCES `recursos` (`id`),
   ADD CONSTRAINT `reservas_sanitario` FOREIGN KEY (`sanitario`) REFERENCES `sanitarios` (`id`);
+
+--
+-- Filtros para la tabla `sanitarios`
+--
+ALTER TABLE `sanitarios`
+  ADD CONSTRAINT `sanitarios_area` FOREIGN KEY (`area`) REFERENCES `areas` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
