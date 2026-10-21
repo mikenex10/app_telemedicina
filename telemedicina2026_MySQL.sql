@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 13-10-2026 a las 14:45:00
+-- Tiempo de generación: 21-10-2026 a las 22:32:45
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -229,7 +229,16 @@ INSERT INTO `resenyas` (`id`, `recurso`, `sanitario`, `fecha`, `valor`, `descrip
 (2, 30, 4, '2026-01-18', 3, 'Aceptable, aunque necesitaba limpieza.'),
 (3, 21, 3, '2026-01-16', 4, 'Buen rendimiento, fácil de usar.'),
 (4, 9, 1, '2026-01-21', 2, 'Tenía pequeños fallos, debería revisarse.'),
-(5, 5, 2, '2026-01-23', 4, 'Buen estado general.');
+(5, 5, 2, '2026-01-23', 4, 'Buen estado general.'),
+(6, 5, 1, '2026-10-13', 5, 'Está genial'),
+(10, 5, 1, '2026-10-13', 3, 'No me gusta'),
+(11, 21, 1, '2026-10-13', 5, 'ME ENCANTA'),
+(12, 5, 1, '2026-10-13', 5, 'ME ENCANTA'),
+(13, 5, 1, '2026-10-13', 5, 'Me gusta muuuucho'),
+(14, 4, 1, '2026-10-13', 5, 'Me gusta muuuucho'),
+(15, 4, 1, '2026-10-13', 2, 'No me gusta tanto'),
+(16, 21, 1, '2026-10-13', 2, 'No sé yo'),
+(17, 21, 1, '2026-10-13', 1, 'Terrible');
 
 -- --------------------------------------------------------
 
@@ -257,11 +266,12 @@ INSERT INTO `reservas` (`id`, `recurso`, `sanitario`, `horas_estimadas`, `fecha_
 (3, 21, 3, 8, '2026-01-15 00:00:00', '2026-01-15 00:00:00', NULL),
 (4, 30, 4, 2, '2026-01-18 00:00:00', '2026-01-18 00:00:00', '2026-01-18 00:00:00'),
 (5, 9, 1, 4, '2026-01-20 00:00:00', NULL, NULL),
-(6, 5, 2, 2, '2026-01-22 00:00:00', NULL, NULL),
 (7, 5, 3, 6, '2026-01-23 00:00:00', '2026-01-23 00:00:00', '2026-01-23 06:00:00'),
 (8, 12, 4, 1, '2026-01-25 00:00:00', '2026-01-25 00:00:00', '2026-01-25 00:00:00'),
 (9, 30, 2, 4, '2026-01-26 00:00:00', NULL, NULL),
-(10, 21, 1, 3, '2026-01-27 00:00:00', '2026-01-27 00:00:00', '2026-01-27 00:00:00');
+(10, 21, 1, 3, '2026-01-27 00:00:00', '2026-01-27 00:00:00', '2026-01-27 00:00:00'),
+(14, 2, 1, 1, '2026-10-13 16:20:19', '2026-10-13 16:20:19', '2026-10-13 16:20:27'),
+(15, 2, 1, 1, '2026-10-13 16:20:29', '2026-10-13 16:20:29', NULL);
 
 -- --------------------------------------------------------
 
@@ -418,13 +428,13 @@ ALTER TABLE `recursos`
 -- AUTO_INCREMENT de la tabla `resenyas`
 --
 ALTER TABLE `resenyas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT de la tabla `reservas`
 --
 ALTER TABLE `reservas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT de la tabla `sanitarios`

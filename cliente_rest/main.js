@@ -3,8 +3,33 @@ var modelos = [];
 var ubicaciones = [];
 
 var gestorActual = null;
+var token = null;
 var app = document.getElementById("app");
 var textoUsuario = document.getElementById("textoUsuario");
+
+var URL_MINISTERIO = "https://undefined.ua.es/telemedicina/api/datos";
+var ID_AREA = 11;
+
+var AREAS_MEDICAS = {
+    1: "Alergología",
+    2: "Anestesiología",
+    3: "Cardiología",
+    4: "Cirugía General",
+    5: "Dermatología",
+    6: "Aparato Digestivo",
+    7: "Endocrinología",
+    8: "Ginecología",
+    9: "Hematología",
+    10: "Medicina Interna",
+    11: "Neumología",
+    12: "Neurología",
+    13: "Oftalmología",
+    14: "Oncología",
+    15: "Pediatría",
+    16: "Psiquiatría",
+    17: "Traumatología",
+    18: "Urología"
+};
 
 // =================================================================
 // WEBSOCKET
@@ -175,7 +200,8 @@ function login() {
 
     rest.post("/api/gestores/login", { usuario, password }, function(estado, respuesta) {
         if (estado === 200) {
-            cargarGestor(respuesta);
+            token = respuesta.token;
+            cargarGestor(respuesta.id);
         } else {
             alert("Usuario o contraseña incorrectos.");
         }
@@ -184,7 +210,7 @@ function login() {
 
 // Carga los datos del gestor que ha iniciado sesión (GET)
 function cargarGestor(id) {
-    rest.get("/api/gestores/" + id, function(estado, respuesta) {
+    rest.get("/api/gestores/" + id + "?token=" + token, function(estado, respuesta) {
         if (estado === 200) {
             gestorActual = respuesta;
             abrirWS(gestorActual.id); // Abrir WebSocket tras login exitoso
@@ -201,9 +227,9 @@ function mostrarHome() {
         <button onclick="logout()">Salir</button>
     `;
 
-    rest.get("/api/categorias", (s,r) => { categorias = r; cargarDatos(); });
-    rest.get("/api/modelos", (s,r) => { modelos = r; cargarDatos(); });
-    rest.get("/api/ubicaciones",(s,r) => { ubicaciones = r; cargarDatos(); });
+    rest.get("/api/categorias?token=" + token, (s,r) => { categorias = r; cargarDatos(); });
+    rest.get("/api/modelos?token=" + token, (s,r) => { modelos = r; cargarDatos(); });
+    rest.get("/api/ubicaciones?token=" + token,(s,r) => { ubicaciones = r; cargarDatos(); });
 
     app.innerHTML = `
         <h1 class="login-title">Portal del gestor</h1>
@@ -242,9 +268,120 @@ function mostrarHome() {
             <h2>Avisos recibidos</h2>
             <div id="tablaAvisos"></div>
         </div>
+
+        <div class="card">
+            <h2>Ranking de reservas por área médica</h2>
+            <button class="primary" onclick="enviarMinisterio()">Enviar reservas al Ministerio</button>
+            <div id="tablaRanking"></div>
+        </div>
     `;
 
     actualizarTablaAvisos();
+    cargarRanking();
+}
+
+// Obtiene las reservas de todos los recursos para enviarlas al Ministerio (GET)
+function enviarMinisterio() {
+    rest.get("/api/recursos?token=" + token, function(estado, recursos) {
+        if (estado !== 200) return;
+
+        var reservas = [];
+        var pendientes = recursos.length;
+
+        recursos.forEach(function(recurso) {
+            rest.get("/api/recursos/" + recurso.id + "/reservas?token=" + token, function(estado, respuesta) {
+                if (estado === 200) {
+                    respuesta.forEach(r => reservas.push(r));
+                }
+                pendientes--;
+                if (pendientes === 0) completarReservas(recursos, reservas);
+            });
+        });
+    });
+}
+
+// Añade a cada reserva los datos del sanitario y la categoría del recurso (GET)
+function completarReservas(recursos, reservas) {
+    var datos = [];
+    var pendientes = reservas.length;
+
+    reservas.forEach(function(r) {
+        rest.get("/api/sanitarios/" + r.sanitario + "?token=" + token, function(estado, sanitario) {
+            if (estado === 200) {
+                var recurso = recursos.find(x => x.id == r.recurso);
+                var modelo = modelos.find(m => m.id == recurso.modelo);
+                var categoria = categorias.find(c => c.id == modelo.categoria);
+
+                datos.push({
+                    nombre: sanitario.nombre,
+                    apellidos: sanitario.apellidos,
+                    "categoría": categoria.nombre,
+                    horas_estimadas: r.horas_estimadas,
+                    fec_pet: r.fecha_peticion,
+                    fec_ini: r.fecha_inicio,
+                    fecha_fin: r.fecha_fin
+                });
+            }
+            pendientes--;
+            if (pendientes === 0) subirReservas(datos);
+        });
+    });
+}
+
+// Envía todas las reservas al Ministerio de Sanidad (POST)
+function subirReservas(datos) {
+    var envio = {
+        id_area: ID_AREA,
+        fecha: new Date().toISOString().substring(0, 10),
+        datos: datos
+    };
+
+    rest.post(URL_MINISTERIO, envio, function(estado, respuesta) {
+        if (estado >= 200 && estado < 300) {
+            alert("Reservas enviadas al Ministerio.");
+            cargarRanking();
+        } else {
+            alert("Error al enviar las reservas al Ministerio.");
+        }
+    });
+}
+
+// Obtiene los datos del Ministerio y muestra el ranking de reservas por área médica (GET)
+function cargarRanking() {
+    rest.get(URL_MINISTERIO, function(estado, respuesta) {
+        if (estado !== 200) return;
+
+        var totales = {};
+        respuesta.forEach(function(envio) {
+            if (!AREAS_MEDICAS[envio.id_area]) return;
+            if (!totales[envio.id_area]) totales[envio.id_area] = 0;
+            totales[envio.id_area] += envio.datos.length;
+        });
+
+        var ranking = Object.keys(totales).map(function(id) {
+            return { area: AREAS_MEDICAS[id], total: totales[id] };
+        });
+        ranking.sort(function(a, b) {
+            return b.total - a.total;
+        });
+
+        document.getElementById("tablaRanking").innerHTML = `
+            <table>
+                <tr>
+                    <th>#</th>
+                    <th>Área Médica</th>
+                    <th>Reservas Totales</th>
+                </tr>
+                ${ranking.map((r, i) => `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td>${r.area}</td>
+                        <td>${r.total}</td>
+                    </tr>
+                `).join("")}
+            </table>
+        `;
+    });
 }
 
 // Construye la pantalla de editar datos del gestor
@@ -288,7 +425,7 @@ function guardarPerfil() {
         password: document.getElementById("ep_password").value
     };
 
-    rest.put("/api/gestores/" + gestorActual.id, datos, function(estado, respuesta) {
+    rest.put("/api/gestores/" + gestorActual.id + "?token=" + token, datos, function(estado, respuesta) {
         if (estado === 200) {
             gestorActual.nombre = datos.nombre;
             gestorActual.apellidos = datos.apellidos;
@@ -328,7 +465,7 @@ function buscar() {
     var u = fUbicacion.value;
     var e = fEstado.value;
 
-    var url = `/api/recursos?categoria=${c}&modelo=${m}&ubicacion=${u}&estado=${e}`;
+    var url = `/api/recursos?categoria=${c}&modelo=${m}&ubicacion=${u}&estado=${e}&token=${token}`;
 
     rest.get(url, function(estado, respuesta) {
         if (estado === 200) mostrarTabla(respuesta);
@@ -381,7 +518,7 @@ function filaRecurso(r) {
 function borrarRecurso(id) {
     var seguro = confirm("¿Estás seguro de que quieres borrar este recurso?");
     if (seguro) {
-        rest.delete("/api/recursos/" + id, function(estado) {
+        rest.delete("/api/recursos/" + id + "?token=" + token, function(estado) {
             if (estado === 200) buscar();
         });
     }
@@ -394,7 +531,7 @@ function nuevoRecurso() {
 
 // Abre la ficha de un recurso concreto para ser editado.
 function abrirRecurso(id) {
-    rest.get("/api/recursos/" + id, function(estado, respuesta) {
+    rest.get("/api/recursos/" + id + "?token=" + token, function(estado, respuesta) {
         if (estado === 200) mostrarFicha(respuesta);
     });
 }
@@ -464,10 +601,10 @@ function guardarRecurso(id) {
 
     if (id) {
         // Actualizar recurso existente
-        rest.put("/api/recursos/" + id, data, () => mostrarHome());
+        rest.put("/api/recursos/" + id + "?token=" + token, data, () => mostrarHome());
     } else {
         // Crear recurso nuevo → notificar por WS
-        rest.post("/api/recursos", data, function(estado, respuesta) {
+        rest.post("/api/recursos?token=" + token, data, function(estado, respuesta) {
             if (estado === 201 && ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     tipo: "nuevoRecurso",
@@ -482,7 +619,7 @@ function guardarRecurso(id) {
 
 // Obtiene y muestra el historial de reservas de un recurso (GET)
 function cargarReservas(id) {
-    rest.get("/api/recursos/" + id + "/reservas", function(estado, respuesta) {
+    rest.get("/api/recursos/" + id + "/reservas?token=" + token, function(estado, respuesta) {
         if (estado !== 200) return;
 
         var html = `
@@ -531,7 +668,7 @@ function filaReserva(r) {
 
 // Carga y muestra las reseñas de un recurso.
 function cargarResenyas(id) {
-    rest.get("/api/recursos/" + id + "/resenyas", function(estado, respuesta) {
+    rest.get("/api/recursos/" + id + "/resenyas?token=" + token, function(estado, respuesta) {
         if (estado !== 200) return;
 
         var html = `
@@ -561,6 +698,7 @@ function cargarResenyas(id) {
 function logout() {
     cerrarWS();
     gestorActual = null;
+    token = null;
     mostrarLogin();
 }
 
